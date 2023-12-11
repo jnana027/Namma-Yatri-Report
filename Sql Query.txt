@@ -1,0 +1,233 @@
+1--total trips
+>select count(distinct tripid) as total_trips from trips_details
+
+2--find the duplicate trip_id ?
+>select tripid,count(*) as cnt_trip from trips_details
+group by tripid
+having count(*)>1
+
+
+>with cte as(
+select *,DENSE_RANK() over(partition by tripid order by tripid) as drnk from trips_details)
+select * from cte where drnk>1
+
+>select * from (
+select *,RANK() over(partition by tripid order by tripid) as drnk from trips_details)
+as A where drnk>1
+
+
+>select 
+*,case when tripid=lag(tripid,1) over(order by tripid) then 'Yes' else 'No' end as Duplicate
+from trips_details
+order by tripid
+
+
+3--total drivers
+>select count(distinct driverid) as total_drivers from trips
+
+4-- total earnings
+>select sum(fare) as total_earnings from trips
+
+5-- total earnings each driver
+>select driverid,sum(fare) as total_earnings from trips
+group by driverid
+order by driverid
+
+6-- total Completed trips
+>select count(distinct tripid) as trips from trips
+
+>select count(distinct tripid) as trips from trips_details where end_ride=1
+
+>select sum(end_ride) as trips from trips_details
+
+7--total searches
+>select count(searches) as total_searches from trips_details
+
+>select sum(searches) as total_searches  from trips_details
+
+8--total searches which got estimate
+>select count(searches) as searches from trips_details where searches_got_estimate=1
+
+>select sum(searches_got_estimate) as searches from trips_details
+
+9--total searches for quotes
+select count(searches) as searches from trips_details where searches_for_quotes=1
+ select sum(searches_for_quotes) as searches from trips_details
+
+10 --total searches which got quotes
+ select count(searches) as searches from trips_details where searches_got_quotes=1
+ select sum(searches_got_quotes) as searches from trips_details
+
+11--total driver cancelled
+
+ >select count(driver_not_cancelled) as total_driver_cancelled from trips_details where driver_not_cancelled=0
+
+  >select count(driver_not_cancelled)-sum(driver_not_cancelled) as total_driver_cancelled from trips_details
+
+  >with cte as (select *,
+  case when driver_not_cancelled=1 then 'not cancelled' else 'cancelled' end as Not_cancel
+  from trips_details)
+  select Not_cancel,count(*) as cnt from cte
+  group by Not_cancel
+
+12--total otp entered
+   >select sum(otp_entered) as total_otp_entered from trips_details
+
+   >with cte as (
+   select *,case when otp_entered=1 then 'Yes' else 'No' end as Entered_OTP from trips_details)
+   select Entered_OTP,count(*) as No_of_total_otp_entered from cte
+   group by Entered_OTP
+
+13--total end ride
+  > select sum(end_ride) as total_end_ride from trips_details
+
+   >select count(*) from trips_details where end_ride=1
+
+   >with cte as (
+   select *,case when end_ride=1 then 'Yes' else 'No' end  as total_end_ride from trips_details)
+   select total_end_ride,count(*) as No_of_total_end_ride from cte
+   group by total_end_ride
+
+
+14  --cancelled bookings by driver
+
+   >select count(*) as cancelled_bookings_by_driver from trips_details where driver_not_cancelled=0
+
+   >with cte as (
+    select *,case when driver_not_cancelled=0 then 'Yes' else 'No' end as Cancel from trips_details)
+	select Cancel,count(*) as cancelled_bookings_by_driver from cte
+	group by Cancel
+
+15--cancelled bookings by customer
+   >select count(*) as cancelled_bookings_by_customer from trips_details where customer_not_cancelled=0
+	
+  >with cte as (
+	select *,case when customer_not_cancelled=0 then 'Yes' else 'No'  end as Cance_by_customer from trips_details)
+	select Cance_by_customer,count(*) as count_customer_cancel from cte 
+	group by Cance_by_customer
+
+16--average distance per trip
+	select avg(distance) as average_distance from trips
+
+17--average fare per trip
+	select avg(fare)  as average_fare from trips
+
+18--distance travelled
+select sum(distance) as distance_travelled from trips
+
+19-- which is the most used payment method
+select top 1 p.method,t.faremethod,count(*) as count_payment from trips as t inner join payment as p on t.faremethod=p.id
+group by p.method,t.faremethod
+order by count_payment desc
+
+20-- the highest payment was made through which instrument
+select B.method,A.* from (
+select  top 1 faremethod,sum(fare) as total_fare from trips
+group by faremethod
+order by total_fare desc) as A inner join payment as B on A.faremethod=B.id
+
+21-- which two locations had the most trips
+select A.*,B.assembly1 from (
+select  top 2 loc_from,count(*) as total_trips from trips
+group by loc_from
+order by total_trips desc) as A inner join loc as B on A.loc_from=B.id
+
+
+22.--top 5 earning drivers
+select top 5 driverid,sum(fare) as total_fare from trips
+group by driverid
+order by total_fare desc
+
+with cte as(
+select *,DENSE_RANK() over(order by total_fare desc) as drnk from (
+select  driverid,sum(fare) as total_fare from trips
+group by driverid) as A)
+select * from cte where drnk<=5
+
+23---which duration had more trips
+select  top 1 duration,count(distinct tripid) as more_trip from trips
+group by duration
+order by  more_trip desc
+
+with cte as(
+select *,rank() over(order by more_trip desc) as rnk from (
+select duration,count(distinct tripid) as more_trip from trips
+group by duration) as A)
+select * from cte where rnk=1
+
+24-- which driver , customer pair had more orders
+select * from trips
+select  top 2 driverid,custid,count(distinct tripid) as more_pair from trips
+group by driverid,custid
+order by more_pair desc
+
+with cte as(
+select *,RANK() over(order by more_pair desc) as rnk from (
+select driverid,custid,count(distinct tripid) as more_pair from trips
+group by driverid,custid) as A)
+select * from cte where rnk=1
+
+25-- search to estimate rate
+select sum(searches_got_estimate)*100.0/sum(searches) as estimate_rate from trips_details
+
+26-- estimate to search for quote rates
+select sum(searches_got_estimate)*100.0/sum(searches) as quote_rate from trips_details
+
+27-- quote acceptance rate
+select sum(searches_for_quotes)*100.0/sum(searches) as quote_rate from trips_details
+
+28-- quote to booking rate
+select sum(searches_got_quotes)*100.0/sum(searches) as quote_rate from trips_details
+
+29-- booking cancellation rate
+select (count(*)-sum(customer_not_cancelled))*100.0/sum(searches) as quote_rate from trips_details
+
+30-- conversion rate
+select sum(otp_entered)*100.0/sum(searches) as quote_rate from trips_details
+
+31-- which area got highest trips in which duration
+with cte as ( 
+select * from loc as l inner join 
+(select *,rank() over(order by cnt desc ) as rnk from (
+select duration,loc_from,count(distinct tripid) as cnt from trips 
+group by duration,loc_from
+) as A) as T on l.id=T.loc_from)
+select * from cte where rnk=1
+
+
+32-- which duration got the highest trips and fares
+
+with cte as(
+select *,rank() over(order by fr desc )  as rnk from (
+select duration,sum(fare)  as fr from trips
+group  by duration) as A)
+select * from cte where rnk=1
+
+
+with cte as(
+select *,rank() over(order by trip desc )  as rnk from (
+select duration,count(distinct tripid)  as trip from trips
+group  by duration) as A)
+select * from cte where rnk=1
+
+
+33-- which area got the highest fares, cancellations,trips,
+with cte as(
+select *,rank() over(order by fr desc )  as rnk from (
+select loc_from,sum(fare)  as fr from trips
+group  by loc_from) as A)
+select * from cte where rnk=1
+
+with cte as(
+select *,rank() over(order by cancel desc)  as rnk from(
+select loc_from,count(*)-sum(driver_not_cancelled) as cancel from trips_details
+group by loc_from) as A)
+select * from cte where rnk=1
+
+with cte as(
+select *,rank() over(order by cancel desc)  as rnk from(
+select loc_from,count(*)-sum(customer_not_cancelled) as cancel from trips_details
+group by loc_from) as A)
+select * from cte where rnk=1
+
+
